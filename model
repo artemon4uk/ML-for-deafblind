@@ -1,0 +1,70 @@
+from sklearn.neighbors import KNeighborsClassifier as KNC
+from sklearn.model_selection import train_test_split
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.tree import DecisionTreeClassifier as DTC
+from sklearn.neural_network import MLPClassifier as MLPC
+from pprint import pprint as pp
+import math
+import re
+import io
+import os
+import unicodedata
+import random
+import string
+from google.colab import files
+from sklearn.model_selection import KFold
+from sklearn.metrics import accuracy_score
+
+
+uploaded = files.upload()
+df_data_1 = pd.read_csv(io.StringIO(uploaded['Слепоглухие.csv'].decode('utf-8')))
+
+state = df_data_1.isnull()
+for j in df_data_1.columns[1:]:
+    for i in range(len(df_data_1[j])):
+        if state[j][i]:
+            df_data_1.loc[i, j] = 'Нет'
+        elif not re.search(r'[а-яА-Яa-zA-Z0-9]', str(df_data_1.loc[i, j])):
+            df_data_1.loc[i, j] = 'Нет'
+            
+df = df_data_1
+df = df.iloc[np.random.permutation(len(df))]
+
+
+train_data = pd.DataFrame(df.drop(['ID'], axis=1))
+train_data = pd.DataFrame(train_data.drop(['disable'], axis=1))
+train_data = train_data[:22000]
+train_labels = list(df['disable'])[:22000]
+cat_features = list(df_data_1.columns[1:-1])
+for i in range(len(train_labels)):
+    if train_labels[i]:
+        train_labels[i] = 1
+    else:
+        train_labels[i] = 0
+        
+
+test_data = []
+model = CatBoostClassifier(iterations=5, learning_rate=0.01,
+                         random_seed=42, 
+                        task_type = "GPU")
+model.fit(train_data, train_labels, cat_features)
+test_data = pd.DataFrame(columns=np.array(df.columns[1:-1]))
+count = 0
+for i in range(22001, 25000):
+  test_data = test_data.append(df.iloc[[i]])
+
+test_data = test_data.drop(['ID'], axis=1)
+test_labels = test_data['disable']
+test_data = list(test_data.drop(['disable'], axis=1))
+
+for i in range(len(test_labels)):
+    if test_labels[i]:
+        test_labels[i] = 1
+    else:
+        test_labels[i] = 0
+        
+answers = model.predict(test_data)
+print(len(test_data))
+accuracy_score(answers, test_labels)
